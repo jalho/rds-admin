@@ -42,7 +42,10 @@ impl Executable {
             .wait()
             .expect("Failed to wait for child process to exit completely");
         let exit_code = exit_status.code().unwrap();
-        println!("Child process exited with code: {}", exit_code);
+        println!(
+            "Child process '{}' exited with code {}",
+            &self.name, exit_code
+        );
     }
 }
 
@@ -73,11 +76,25 @@ fn main() {
             };
             let mut websocket = accept(tcp_stream).unwrap();
             loop {
-                let msg = websocket.read().unwrap();
-                if msg.is_binary() || msg.is_text() {
-                    Executable::new("date", vec!["+%s"]).exec(&mut log_file);
-                    Executable::new("echo", vec!["foo"]).exec(&mut log_file);
-                    websocket.send(msg).unwrap();
+                let _msg = websocket.read();
+                match _msg {
+                    Err(err) => match err {
+                        tungstenite::Error::ConnectionClosed => {
+                            println!("Connection closed by peer");
+                            break;
+                        },
+                        _ => {
+                            println!("Error occurred with socket: {:?}", err);
+                            break;
+                        }
+                    },
+                    Ok(msg) => {
+                        if msg.is_binary() || msg.is_text() {
+                            Executable::new("date", vec!["+%s"]).exec(&mut log_file);
+                            Executable::new("echo", vec!["foo"]).exec(&mut log_file);
+                            websocket.send(msg).unwrap();
+                        }
+                    }
                 }
             }
         });
