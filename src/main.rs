@@ -1,7 +1,10 @@
 use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::{self};
+use std::net::TcpListener;
 use std::process::{exit, Command, Stdio};
+use std::thread::spawn;
+use tungstenite::accept;
 
 struct Executable {
     name: String,
@@ -49,20 +52,34 @@ fn main() {
         eprintln!("Usage: {} <log_file_path>", args[0]);
         exit(1);
     }
-    let log_file_path = &args[1];
+    let log_file_path = args[1].clone();
 
-    let mut log_file = match OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_file_path)
-    {
-        Ok(file) => file,
-        Err(err) => {
-            eprintln!("Error opening log file: {}", err);
-            exit(1);
-        }
-    };
+    let server = TcpListener::bind("127.0.0.1:8080").unwrap();
 
-    Executable::new("date", vec!["+%s"]).exec(&mut log_file);
-    Executable::new("echo", vec!["foo"]).exec(&mut log_file);
+    for _tcp_stream in server.incoming() {
+        let tcp_stream = _tcp_stream.unwrap();
+        let log_file_path = log_file_path.clone();
+        spawn(move || {
+            let _log_file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log_file_path);
+            let mut log_file = match _log_file {
+                Ok(file) => file,
+                Err(err) => {
+                    eprintln!("Error opening log file: {}", err);
+                    exit(1);
+                }
+            };
+            let mut websocket = accept(tcp_stream).unwrap();
+            loop {
+                let msg = websocket.read().unwrap();
+                if msg.is_binary() || msg.is_text() {
+                    Executable::new("date", vec!["+%s"]).exec(&mut log_file);
+                    Executable::new("echo", vec!["foo"]).exec(&mut log_file);
+                    websocket.send(msg).unwrap();
+                }
+            }
+        });
+    }
 }
