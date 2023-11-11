@@ -82,19 +82,28 @@ fn main() {
                         tungstenite::Error::ConnectionClosed => {
                             println!("Connection closed by peer");
                             break;
-                        },
+                        }
                         _ => {
                             println!("Error occurred with socket: {:?}", err);
                             break;
                         }
                     },
-                    Ok(msg) => {
-                        if msg.is_binary() || msg.is_text() {
-                            Executable::new("date", vec!["+%s"]).exec(&mut log_file);
-                            Executable::new("echo", vec!["foo"]).exec(&mut log_file);
-                            websocket.send(msg).unwrap();
+                    Ok(_msg) => match _msg {
+                        tungstenite::Message::Text(text_message) => {
+                            println!("Got a text message");
+
+                            if text_message == "date +%s" {
+                                Executable::new("date", vec!["+%s"]).exec(&mut log_file);
+                            } else if text_message == "echo foo" {
+                                Executable::new("echo", vec!["foo"]).exec(&mut log_file);
+                            }
+
+                            websocket.send("asd".into()).unwrap();
                         }
-                    }
+                        _ => {
+                            println!("Got a message that's not text");
+                        }
+                    },
                 }
             }
         });

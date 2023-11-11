@@ -6,7 +6,7 @@ ws.on('error', console.error);
 ws.on("close", () => console.log("closed"));
 
 ws.on('open', function open() {
-  ws.send('something');
+  ws.send(process.argv[2]);
 });
 
 ws.on('message', function message(data) {
