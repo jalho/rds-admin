@@ -59,15 +59,15 @@ fn main() {
 
     let server = TcpListener::bind("127.0.0.1:8080").unwrap();
 
-    for _tcp_stream in server.incoming() {
-        let tcp_stream = _tcp_stream.unwrap();
+    for tcp_stream in server.incoming() {
+        let tcp_stream = tcp_stream.unwrap();
         let log_file_path = log_file_path.clone();
         spawn(move || {
-            let _log_file = OpenOptions::new()
+            let log_file = OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(log_file_path);
-            let mut log_file = match _log_file {
+            let mut log_file = match log_file {
                 Ok(file) => file,
                 Err(err) => {
                     eprintln!("Error opening log file: {}", err);
@@ -76,8 +76,8 @@ fn main() {
             };
             let mut websocket = accept(tcp_stream).unwrap();
             loop {
-                let _msg = websocket.read();
-                match _msg {
+                let message = websocket.read();
+                match message {
                     Err(err) => match err {
                         tungstenite::Error::ConnectionClosed => {
                             println!("Connection closed by peer");
@@ -88,7 +88,7 @@ fn main() {
                             break;
                         }
                     },
-                    Ok(_msg) => match _msg {
+                    Ok(message) => match message {
                         tungstenite::Message::Text(text_message) => {
                             println!("Got a text message");
 
