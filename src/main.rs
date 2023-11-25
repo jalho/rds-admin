@@ -1,6 +1,7 @@
 mod command;
 mod init;
 
+use command::Cmd;
 use std::io::Write;
 
 fn main() {
@@ -26,12 +27,12 @@ fn main() {
         Err(_) => todo!(),
     }
 
-    let command_runner = command::CommandRunner::new(command_log_file);
+    let runner = command::CommandRunner::new(command_log_file);
 
     // TODO: add locking mechanism so that only one command can be in execution at once
     // TODO: accept websocket connections that shall issue whitelisted commands to be executed
     // TODO: broadcast current execution status to all connected clients
-    command_runner.exec("echo".to_string(), vec!["foo".to_string()]);
-    command_runner.exec("sleep".to_string(), vec!["2s".to_string()]);
-    command_runner.exec("pwd".to_string(), vec![]);
+    runner.exec(&Cmd::new(("echo".to_string(), vec!["foo".to_string()])));
+    runner.exec(&Cmd::new(("sleep".to_string(), vec!["2s".to_string()])));
+    runner.exec(&Cmd::new(("pwd".to_string(), vec![])));
 }

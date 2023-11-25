@@ -1,5 +1,17 @@
 use std::io::Write;
 
+pub struct Cmd {
+    name: String,
+    args: Vec<String>,
+}
+
+impl Cmd {
+    pub fn new(name_and_args: (String, Vec<String>)) -> Self {
+        let (name, args) = name_and_args;
+        Self { args, name }
+    }
+}
+
 pub struct CommandRunner {
     log_file: std::fs::File,
 }
@@ -9,14 +21,14 @@ impl CommandRunner {
         Self { log_file }
     }
 
-    pub fn exec(&self, command: String, args: Vec<String>) {
+    pub fn exec(&self, command: &Cmd) {
         let mut writer = std::io::BufWriter::new(&self.log_file);
         let utc_time_spawn: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
         // spawn command as child process
         let mut child_process: std::process::Child;
-        let result = std::process::Command::new(&command)
-            .args(&args)
+        let result = std::process::Command::new(&command.name)
+            .args(&command.args)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn();
@@ -28,8 +40,8 @@ impl CommandRunner {
         }
 
         // log the command
-        let args_fmt = if args.len() > 0 {
-            format!(" {}", args.join(" "))
+        let args_fmt = if command.args.len() > 0 {
+            format!(" {}", command.args.join(" "))
         } else {
             "".to_string()
         };
@@ -37,7 +49,7 @@ impl CommandRunner {
             format!(
                 "[{}] $ {}{}\n",
                 utc_time_spawn.format("%Y-%m-%d %H:%M:%S"),
-                command,
+                command.name,
                 args_fmt
             )
             .as_bytes(),
