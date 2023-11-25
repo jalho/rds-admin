@@ -82,7 +82,7 @@ fn main() {
                 match message {
                     Err(err) => match err {
                         tungstenite::Error::ConnectionClosed => {
-                            println!("Connection closed by peer");
+                            println!("Connection has been closed by peer");
                             break;
                         }
                         _ => {
@@ -92,7 +92,7 @@ fn main() {
                     },
                     Ok(message) => match message {
                         tungstenite::Message::Text(text_message) => {
-                            println!("Got a text message");
+                            println!("Command received");
                             let mut accepted = false;
 
                             // only specific commands shall be allowed
@@ -108,11 +108,17 @@ fn main() {
                             }
 
                             let ack = if accepted { "accepted" } else { "rejected" };
+                            println!("Command {}", ack);
                             websocket.send(ack.into()).unwrap();
                         }
-                        _ => {
-                            println!("Got a message that's not text");
-                        }
+                        tungstenite::Message::Close(asd) => match asd {
+                            Some(close_frame) => println!(
+                                "Peer initiated close sequence with code {:?}, reason {:?}",
+                                close_frame.code, close_frame.reason
+                            ),
+                            None => todo!(),
+                        },
+                        _ => todo!(),
                     },
                 }
             }
