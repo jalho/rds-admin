@@ -63,19 +63,13 @@ fn main() {
 
     for tcp_stream in server.incoming() {
         let tcp_stream = tcp_stream.unwrap();
-        let log_file_path = log_file_path.clone();
+        let command_log_file_path = log_file_path.clone();
         spawn(move || {
-            let command_log_file = OpenOptions::new()
+            let mut command_log_file = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(log_file_path);
-            let mut command_log_file = match command_log_file {
-                Ok(file) => file,
-                Err(err) => {
-                    eprintln!("Error opening command log file: {}", err);
-                    exit(1);
-                }
-            };
+                .open(command_log_file_path)
+                .expect("Error opening command log file"); // TODO: check to be writeable file at startup!
             let mut websocket = accept(tcp_stream).unwrap();
             loop {
                 let message = websocket.read();
@@ -104,7 +98,8 @@ fn main() {
                                 Executable::new("echo", vec!["foo"]).exec(&mut command_log_file);
                             } else if text_message == "rm \"does not exist\"" {
                                 accepted = true;
-                                Executable::new("rm", vec!["does not exist"]).exec(&mut command_log_file);
+                                Executable::new("rm", vec!["does not exist"])
+                                    .exec(&mut command_log_file);
                             }
 
                             let ack = if accepted { "accepted" } else { "rejected" };
