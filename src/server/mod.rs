@@ -2,15 +2,16 @@ use crate::command;
 
 pub fn accept_connections(arc_runner: &std::sync::Arc<std::sync::Mutex<command::CommandRunner>>) {
     let result = std::net::TcpListener::bind("127.0.0.1:8080"); // TODO: get addr from config
-    let listener: std::net::TcpListener;
+    let tcp_listener: std::net::TcpListener;
     match result {
-        Ok(asd) => {
-            listener = asd;
+        Ok(listener) => {
+            tcp_listener = listener;
         }
         Err(_) => todo!(),
     }
     // TODO: broadcast current execution status to all connected clients
-    for result in listener.incoming() {
+    // TODO: do this loop in a new thread -- spawn in main, not here in submodule?
+    for result in tcp_listener.incoming() {
         match result {
             Ok(tcp_stream) => {
                 let result = tungstenite::accept(tcp_stream);
@@ -29,7 +30,8 @@ pub fn accept_connections(arc_runner: &std::sync::Arc<std::sync::Mutex<command::
     }
 }
 
-/// Handle socket when the given global _runner_ (passed as `Arc`) is available.
+/// Handle socket when the given global _runner_ (passed as `Arc<Mutex>`) is
+/// available.
 fn handle_socket(
     _socket: tungstenite::WebSocket<std::net::TcpStream>,
     arc_runner: std::sync::Arc<std::sync::Mutex<command::CommandRunner>>,
