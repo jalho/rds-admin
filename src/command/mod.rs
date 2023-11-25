@@ -9,14 +9,14 @@ impl CommandRunner {
         Self { log_file }
     }
 
-    pub fn exec(&self, command: &String, args: &Vec<String>) {
+    pub fn exec(&self, command: String, args: Vec<String>) {
         let mut writer = std::io::BufWriter::new(&self.log_file);
         let utc_time_spawn: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
         // spawn command as child process
         let mut child_process: std::process::Child;
-        let result = std::process::Command::new(command)
-            .args(args)
+        let result = std::process::Command::new(&command)
+            .args(&args)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn();

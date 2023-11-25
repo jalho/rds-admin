@@ -31,7 +31,7 @@ fn main() {
     // TODO: add locking mechanism so that only one command can be in execution at once
     // TODO: accept websocket connections that shall issue whitelisted commands to be executed
     // TODO: broadcast current execution status to all connected clients
-    command_runner.exec(&"echo".to_string(), &vec!["foo".to_string()]);
-    command_runner.exec(&"sleep".to_string(), &vec!["2s".to_string()]);
-    command_runner.exec(&"pwd".to_string(), &vec![]);
+    command_runner.exec("echo".to_string(), vec!["foo".to_string()]);
+    command_runner.exec("sleep".to_string(), vec!["2s".to_string()]);
+    command_runner.exec("pwd".to_string(), vec![]);
 }
