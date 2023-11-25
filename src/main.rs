@@ -93,14 +93,22 @@ fn main() {
                     Ok(message) => match message {
                         tungstenite::Message::Text(text_message) => {
                             println!("Got a text message");
+                            let mut accepted = false;
 
+                            // only specific commands shall be allowed
                             if text_message == "date +%s" {
+                                accepted = true;
                                 Executable::new("date", vec!["+%s"]).exec(&mut log_file);
                             } else if text_message == "echo foo" {
+                                accepted = true;
                                 Executable::new("echo", vec!["foo"]).exec(&mut log_file);
+                            } else if text_message == "rm \"does not exist\"" {
+                                accepted = true;
+                                Executable::new("rm", vec!["does not exist"]).exec(&mut log_file);
                             }
 
-                            websocket.send("asd".into()).unwrap();
+                            let ack = if accepted { "accepted" } else { "rejected" };
+                            websocket.send(ack.into()).unwrap();
                         }
                         _ => {
                             println!("Got a message that's not text");
