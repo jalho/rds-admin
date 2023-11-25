@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::{File, OpenOptions};
-use std::io::{self};
+use std::io::{self, Write};
 use std::net::TcpListener;
 use std::process::{exit, Command, Stdio};
 use std::thread::spawn;
@@ -18,6 +18,8 @@ impl Executable {
         }
     }
     fn exec(&self, log_file: &mut File) {
+        let cmd = format!("$ {} {}\n", &self.name, &self.args.join(" "));
+        log_file.write_all(&cmd.as_bytes()).unwrap();
         let spawned = Command::new(&self.name)
             .args(&self.args)
             .stdout(Stdio::piped())
