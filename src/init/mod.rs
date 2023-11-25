@@ -70,7 +70,7 @@ pub fn init_config(file_path: &String, default_config: Config) -> Config {
     return general_config;
 }
 
-pub fn init_command_log(file_path: &String, config: &Config) -> std::fs::File {
+pub fn init_command_log(config: &Config) -> std::fs::File {
     let command_log_file: std::fs::File;
     let mut file_open_opts = std::fs::OpenOptions::new();
     file_open_opts.write(true).create(true).append(true);
@@ -79,7 +79,7 @@ pub fn init_command_log(file_path: &String, config: &Config) -> std::fs::File {
         Err(err) => {
             eprintln!(
                 "Failed to open writeable command log file '{}': {:?}",
-                file_path, err
+                &config.command_log_file_path, err
             );
             std::process::exit(1);
         }

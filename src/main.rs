@@ -12,13 +12,13 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 {
-        eprintln!("Usage: {} [GENERAL CONFIG FILE PATH]", args[1]);
+        eprintln!("Usage: {} [GENERAL CONFIG FILE PATH]", args[0]);
         std::process::exit(1);
     }
 
-    let file_path = &args[1];
-    let general_config = init::init_config(file_path, default_config);
-    let mut command_log_file = init::init_command_log(file_path, &general_config);
+    let general_config_file_path = &args[1];
+    let general_config = init::init_config(general_config_file_path, default_config);
+    let mut command_log_file = init::init_command_log(&general_config);
     let result = command_log_file
         .write_all(format!("[{}] START\n", utc_time_start.format("%Y-%m-%d %H:%M:%S")).as_bytes());
     match result {
