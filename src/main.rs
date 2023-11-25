@@ -1,127 +1,107 @@
-use std::env;
-use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
-use std::net::TcpListener;
-use std::process::{exit, Command, Stdio};
-use std::thread::spawn;
+use std::io::{Read, Write};
 
-struct Executable {
-    name: String,
-    args: Vec<String>,
-}
-impl Executable {
-    fn new(name: &str, args: Vec<&str>) -> Self {
-        Self {
-            name: name.to_string(),
-            args: args.iter().map(|&arg| arg.to_string()).collect(),
-        }
-    }
-    fn exec(&self, log_file: &mut File) {
-        let cmd = format!("$ {} {}\n", &self.name, &self.args.join(" "));
-        log_file.write_all(&cmd.as_bytes()).unwrap();
-        let spawned = Command::new(&self.name)
-            .args(&self.args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn();
-        let mut child_process = match spawned {
-            Ok(child) => child,
-            Err(err) => {
-                log(format!("Error executing command: {}", err));
-                exit(1);
-            }
-        };
-        let stdout = child_process.stdout.take().unwrap();
-        let stderr = child_process.stderr.take().unwrap();
-
-        io::copy(&mut io::BufReader::new(stdout), log_file)
-            .expect("Error writing STDOUT to log file");
-        io::copy(&mut io::BufReader::new(stderr), log_file)
-            .expect("Error writing STDERR to log file");
-
-        let exit_status = child_process
-            .wait()
-            .expect("Failed to wait for child process to exit completely");
-        let exit_code = exit_status.code().unwrap();
-        log(format!(
-            "Child process '{}' exited with code {}",
-            &self.name, exit_code
-        ));
-    }
+#[derive(serde::Deserialize, serde::Serialize)]
+struct Config {
+    /// Path to a _command log file_, which is where any issued commands and
+    /// their stdout & stderr will be written to.
+    command_log_file_path: String,
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let utc_time_start: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
+    let default_config = Config {
+        command_log_file_path: "command.log".to_string(),
+    };
+
+    let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 {
-        eprintln!("Usage: {} <log_file_path>", args[0]);
-        exit(1);
+        eprintln!("Usage: {} [GENERAL CONFIG FILE PATH]", args[1]);
+        std::process::exit(1);
     }
-    let log_file_path = args[1].clone();
 
-    let server = TcpListener::bind("127.0.0.1:8080").unwrap();
+    // check required arg 1: "general config"
+    let file_path = &args[1];
+    let general_config = init_config(file_path, default_config);
 
-    // TODO: refactor this code to not be so indented!
-    for tcp_stream in server.incoming() {
-        let tcp_stream = tcp_stream.unwrap();
-        let command_log_file_path = log_file_path.clone();
-        spawn(move || {
-            let mut command_log_file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(command_log_file_path)
-                .expect("Error opening command log file"); // TODO: check to be writeable file at startup!
-            let mut websocket = tungstenite::accept(tcp_stream).unwrap();
-            loop {
-                let message = websocket.read();
-                match message {
-                    Err(err) => match err {
-                        tungstenite::Error::ConnectionClosed => {
-                            log(format!("Connection has been closed by peer"));
-                            break;
-                        }
-                        _ => {
-                            log(format!("Error occurred with socket: {:?}", err));
-                            break;
-                        }
-                    },
-                    Ok(message) => match message {
-                        tungstenite::Message::Text(text_message) => {
-                            log("Command received".to_string());
-                            let mut accepted = false;
-
-                            // only specific commands shall be allowed
-                            if text_message == "date +%s" {
-                                accepted = true;
-                                Executable::new("date", vec!["+%s"]).exec(&mut command_log_file);
-                            } else if text_message == "echo foo" {
-                                accepted = true;
-                                Executable::new("echo", vec!["foo"]).exec(&mut command_log_file);
-                            } else if text_message == "rm \"does not exist\"" {
-                                accepted = true;
-                                Executable::new("rm", vec!["does not exist"])
-                                    .exec(&mut command_log_file);
-                            }
-
-                            let ack = if accepted { "accepted" } else { "rejected" };
-                            log(format!("Command {}", ack));
-                            websocket.send(ack.into()).unwrap();
-                        }
-                        tungstenite::Message::Close(asd) => match asd {
-                            Some(close_frame) => log(format!(
-                                "Peer initiated close sequence with code {:?}, reason {:?}",
-                                close_frame.code, close_frame.reason
-                            )),
-                            None => todo!(),
-                        },
-                        _ => todo!(),
-                    },
-                }
-            }
-        });
+    let mut command_log_file: std::fs::File;
+    let mut file_open_opts = std::fs::OpenOptions::new();
+    file_open_opts.write(true).create(true).append(true);
+    let result_open = file_open_opts.open(&general_config.command_log_file_path);
+    match result_open {
+        Err(err) => {
+            eprintln!(
+                "Failed to open writeable command log file '{}': {:?}",
+                file_path, err
+            );
+            std::process::exit(1);
+        }
+        Ok(file) => command_log_file = file,
     }
+    command_log_file
+        .write_all(format!("[{}] START\n", utc_time_start.format("%Y-%m-%d %H:%M:%S")).as_bytes())
+        .unwrap(); // already checked to be writeable earlier -- go ahead and crash if that's not enough!
 }
 
-fn log(line: String) {
-    let utc_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-    println!("[{}] {}", utc_time.format("%Y-%m-%d %H:%M:%S"), line);
+fn write_default_config(mut file: &std::fs::File, default_config: &Config) {
+    let toml_string = toml::to_string_pretty(&default_config)
+        .expect("Failed to serialize default config to TOML");
+    file.write_all(toml_string.as_bytes())
+        .expect("Failed to write default config to filesystem");
+}
+
+/// Get config from given file system path, or write config with default values
+/// to file system to the given path if the config file doesn't exist yet.
+fn init_config(file_path: &String, default_config: Config) -> Config {
+    let mut general_config_file: std::fs::File;
+    let mut file_open_opts = std::fs::OpenOptions::new();
+    file_open_opts
+        .read(true)
+        // if not exist, will create with defaults
+        .write(true)
+        .create(true);
+    let result_open = file_open_opts.open(file_path);
+    match result_open {
+        Err(err) => {
+            eprintln!(
+                "Failed to open or create general config file '{}': {:?}",
+                file_path, err
+            );
+            std::process::exit(1);
+        }
+        Ok(file) => general_config_file = file,
+    }
+
+    let mut general_config_file_content = String::new();
+    let result_read = general_config_file.read_to_string(&mut general_config_file_content);
+    match result_read {
+        Err(err) => {
+            eprintln!(
+                "Failed to read general config file '{}': {:?}",
+                file_path, err
+            );
+            std::process::exit(1);
+        }
+        _ => {}
+    }
+
+    let general_config: Config;
+    let result_parse: Result<Config, toml::de::Error> =
+        toml::from_str(&general_config_file_content);
+    match result_parse {
+        Err(err) => {
+            eprintln!(
+                "Failed to parse TOML from given general config file '{}': {}",
+                file_path,
+                err.message()
+            );
+            println!("Initializing general config with defaults");
+            write_default_config(&general_config_file, &default_config);
+            general_config = default_config;
+        }
+        Ok(config) => {
+            general_config = config;
+        }
+    }
+    return general_config;
 }
