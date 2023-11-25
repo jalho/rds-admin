@@ -4,7 +4,6 @@ use std::io::{self, Write};
 use std::net::TcpListener;
 use std::process::{exit, Command, Stdio};
 use std::thread::spawn;
-use tungstenite::accept;
 
 struct Executable {
     name: String,
@@ -61,6 +60,7 @@ fn main() {
 
     let server = TcpListener::bind("127.0.0.1:8080").unwrap();
 
+    // TODO: refactor this code to not be so indented!
     for tcp_stream in server.incoming() {
         let tcp_stream = tcp_stream.unwrap();
         let command_log_file_path = log_file_path.clone();
@@ -70,7 +70,7 @@ fn main() {
                 .append(true)
                 .open(command_log_file_path)
                 .expect("Error opening command log file"); // TODO: check to be writeable file at startup!
-            let mut websocket = accept(tcp_stream).unwrap();
+            let mut websocket = tungstenite::accept(tcp_stream).unwrap();
             loop {
                 let message = websocket.read();
                 match message {
