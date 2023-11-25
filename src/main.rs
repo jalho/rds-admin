@@ -7,6 +7,21 @@ struct Config {
     command_log_file_path: String,
 }
 
+struct CommandRunner {
+    log_file: std::fs::File,
+}
+impl CommandRunner {
+    fn new(log_file: std::fs::File) -> Self {
+        Self {
+            log_file
+        }
+    }
+    fn exec(&self) {
+        let mut writer = std::io::BufWriter::new(&self.log_file);
+        writer.write_all(b"foo bar\n").unwrap(); // TODO!
+    }
+}
+
 fn main() {
     let utc_time_start: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
@@ -20,7 +35,6 @@ fn main() {
         std::process::exit(1);
     }
 
-    // check required arg 1: "general config"
     let file_path = &args[1];
     let general_config = init_config(file_path, default_config);
 
@@ -41,6 +55,9 @@ fn main() {
     command_log_file
         .write_all(format!("[{}] START\n", utc_time_start.format("%Y-%m-%d %H:%M:%S")).as_bytes())
         .unwrap(); // already checked to be writeable earlier -- go ahead and crash if that's not enough!
+
+    let command_runner = CommandRunner::new(command_log_file);
+    command_runner.exec();
 }
 
 fn write_default_config(mut file: &std::fs::File, default_config: &Config) {
