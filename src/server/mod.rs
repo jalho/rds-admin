@@ -14,12 +14,13 @@ pub fn accept_connections(arc_runner: &std::sync::Arc<std::sync::Mutex<command::
     for result in tcp_listener.incoming() {
         match result {
             Ok(tcp_stream) => {
+                let utc_time_accept: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
                 let result = tungstenite::accept(tcp_stream);
                 match result {
                     Ok(websocket) => {
                         let runner = std::sync::Arc::clone(arc_runner);
-                        std::thread::spawn(|| {
-                            handle_socket(websocket, runner);
+                        std::thread::spawn(move || {
+                            handle_socket(websocket, runner, utc_time_accept);
                         });
                     }
                     Err(_) => todo!(),
@@ -35,8 +36,9 @@ pub fn accept_connections(arc_runner: &std::sync::Arc<std::sync::Mutex<command::
 fn handle_socket(
     _socket: tungstenite::WebSocket<std::net::TcpStream>,
     arc_runner: std::sync::Arc<std::sync::Mutex<command::CommandRunner>>,
+    utc_time_accept: chrono::DateTime<chrono::Utc>,
 ) {
-    let result = arc_runner.lock();
+    let result = arc_runner.try_lock();
     match result {
         Ok(runner) => {
             // TODO: accept whitelisted commands to be executed
@@ -47,10 +49,15 @@ fn handle_socket(
             )));
             runner.exec(&command::Cmd::new((
                 "sleep".to_string(),
-                vec!["2s".to_string()],
+                vec!["10s".to_string()],
             )));
             runner.exec(&command::Cmd::new(("pwd".to_string(), vec![])));
         }
-        Err(_) => todo!(), // implies panic in some other thread... should log err and skip this socket
+        Err(_) => {
+            println!(
+                "[{}] RUNNER LOCKED BY ANOTHER CONNECTION",
+                utc_time_accept.format("%Y-%m-%d %H:%M:%S")
+            );
+        }
     }
 }
