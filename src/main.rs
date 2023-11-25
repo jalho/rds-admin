@@ -28,7 +28,7 @@ impl Executable {
         let mut child_process = match spawned {
             Ok(child) => child,
             Err(err) => {
-                eprintln!("Error executing command: {}", err);
+                log(format!("Error executing command: {}", err));
                 exit(1);
             }
         };
@@ -44,10 +44,10 @@ impl Executable {
             .wait()
             .expect("Failed to wait for child process to exit completely");
         let exit_code = exit_status.code().unwrap();
-        println!(
+        log(format!(
             "Child process '{}' exited with code {}",
             &self.name, exit_code
-        );
+        ));
     }
 }
 
@@ -65,14 +65,14 @@ fn main() {
         let tcp_stream = tcp_stream.unwrap();
         let log_file_path = log_file_path.clone();
         spawn(move || {
-            let log_file = OpenOptions::new()
+            let command_log_file = OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(log_file_path);
-            let mut log_file = match log_file {
+            let mut command_log_file = match command_log_file {
                 Ok(file) => file,
                 Err(err) => {
-                    eprintln!("Error opening log file: {}", err);
+                    eprintln!("Error opening command log file: {}", err);
                     exit(1);
                 }
             };
@@ -82,40 +82,40 @@ fn main() {
                 match message {
                     Err(err) => match err {
                         tungstenite::Error::ConnectionClosed => {
-                            println!("Connection has been closed by peer");
+                            log(format!("Connection has been closed by peer"));
                             break;
                         }
                         _ => {
-                            println!("Error occurred with socket: {:?}", err);
+                            log(format!("Error occurred with socket: {:?}", err));
                             break;
                         }
                     },
                     Ok(message) => match message {
                         tungstenite::Message::Text(text_message) => {
-                            println!("Command received");
+                            log("Command received".to_string());
                             let mut accepted = false;
 
                             // only specific commands shall be allowed
                             if text_message == "date +%s" {
                                 accepted = true;
-                                Executable::new("date", vec!["+%s"]).exec(&mut log_file);
+                                Executable::new("date", vec!["+%s"]).exec(&mut command_log_file);
                             } else if text_message == "echo foo" {
                                 accepted = true;
-                                Executable::new("echo", vec!["foo"]).exec(&mut log_file);
+                                Executable::new("echo", vec!["foo"]).exec(&mut command_log_file);
                             } else if text_message == "rm \"does not exist\"" {
                                 accepted = true;
-                                Executable::new("rm", vec!["does not exist"]).exec(&mut log_file);
+                                Executable::new("rm", vec!["does not exist"]).exec(&mut command_log_file);
                             }
 
                             let ack = if accepted { "accepted" } else { "rejected" };
-                            println!("Command {}", ack);
+                            log(format!("Command {}", ack));
                             websocket.send(ack.into()).unwrap();
                         }
                         tungstenite::Message::Close(asd) => match asd {
-                            Some(close_frame) => println!(
+                            Some(close_frame) => log(format!(
                                 "Peer initiated close sequence with code {:?}, reason {:?}",
                                 close_frame.code, close_frame.reason
-                            ),
+                            )),
                             None => todo!(),
                         },
                         _ => todo!(),
@@ -124,4 +124,9 @@ fn main() {
             }
         });
     }
+}
+
+fn log(line: String) {
+    let utc_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+    println!("[{}] {}", utc_time.format("%Y-%m-%d %H:%M:%S"), line);
 }
