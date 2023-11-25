@@ -1,6 +1,6 @@
 ## Usage
 
 ```bash
-cargo run -- log.log
+cargo run -- config.toml
 node ws-client.mjs "echo foo"
 ```
