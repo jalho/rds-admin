@@ -12,13 +12,56 @@ struct CommandRunner {
 }
 impl CommandRunner {
     fn new(log_file: std::fs::File) -> Self {
-        Self {
-            log_file
-        }
+        Self { log_file }
     }
-    fn exec(&self) {
+
+    // TODO: remove all the unwraps :D
+    fn exec(&self, command: &String, args: &Vec<String>) {
         let mut writer = std::io::BufWriter::new(&self.log_file);
-        writer.write_all(b"foo bar\n").unwrap(); // TODO!
+        let utc_time_spawn: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+        let mut child_process = std::process::Command::new(command)
+            .args(args)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let args_fmt = if args.len() > 0 {
+            format!(" {}", args.join(" "))
+        } else {
+            "".to_string()
+        };
+        writer
+            .write_all(
+                format!(
+                    "[{}] $ {}{}\n",
+                    utc_time_spawn.format("%Y-%m-%d %H:%M:%S"),
+                    command,
+                    args_fmt
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+
+        let stdout = child_process.stdout.take().unwrap();
+        let stderr = child_process.stderr.take().unwrap();
+        std::io::copy(&mut std::io::BufReader::new(stdout), &mut writer).unwrap();
+        std::io::copy(&mut std::io::BufReader::new(stderr), &mut writer).unwrap();
+
+        let exit_status = child_process.wait().unwrap().code().unwrap();
+        let utc_time_exit: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+        if exit_status != 0 {
+            writer
+                .write_all(
+                    format!(
+                        "[{}] CHILD PROCESS EXITED WITH STATUS {:?}\n",
+                        utc_time_exit.format("%Y-%m-%d %H:%M:%S"),
+                        exit_status,
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+        }
     }
 }
 
@@ -57,7 +100,8 @@ fn main() {
         .unwrap(); // already checked to be writeable earlier -- go ahead and crash if that's not enough!
 
     let command_runner = CommandRunner::new(command_log_file);
-    command_runner.exec();
+    command_runner.exec(&"echo".to_string(), &vec!["foo".to_string()]);
+    command_runner.exec(&"pwd".to_string(), &vec![]);
 }
 
 fn write_default_config(mut file: &std::fs::File, default_config: &Config) {
