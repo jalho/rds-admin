@@ -1,3 +1,8 @@
+// TODO: implement the whole thing using only standard library?
+//       - websocket protocol
+//       - ser-de for TOML
+//       - etc...
+
 mod command;
 mod init;
 mod server;
@@ -32,7 +37,6 @@ fn main() {
 
     // TODO: define TCP connection acceptor loop here in main in a new thread
     // TODO: add interrupt handler for graceful shutdown?
-    // TODO: make runner ctor return an `Arc<Mutex>` directly? -- never intended to not be such; commands should always be executed one at a time!
-    let runner = std::sync::Arc::new(std::sync::Mutex::new(command::CommandRunner::new(command_log_file)));
+    let runner = command::CommandRunner::new(command_log_file);
     server::accept_connections(&runner);
 }

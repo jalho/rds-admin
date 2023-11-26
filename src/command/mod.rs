@@ -17,8 +17,10 @@ pub struct CommandRunner {
 }
 
 impl CommandRunner {
-    pub fn new(log_file: std::fs::File) -> Self {
-        Self { log_file }
+    /// Instantiate a mutex locked, global (shareable across threads) command
+    /// runner.
+    pub fn new(log_file: std::fs::File) -> std::sync::Arc<std::sync::Mutex<Self>> {
+        return std::sync::Arc::new(std::sync::Mutex::new(Self { log_file }));
     }
 
     // TODO: Add support for running a sequence of commands
