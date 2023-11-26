@@ -10,7 +10,7 @@ pub fn accept_connections(arc_runner: &std::sync::Arc<std::sync::Mutex<command::
         Err(_) => todo!(),
     }
     // TODO: broadcast current execution status to all connected clients
-    // TODO: do this loop in a new thread -- spawn in main, not here in submodule?
+    // TODO: move TCP connections taking loop to a new thread -- spawn in main, not here in submodule?
     for result in tcp_listener.incoming() {
         match result {
             Ok(tcp_stream) => {
@@ -31,8 +31,6 @@ pub fn accept_connections(arc_runner: &std::sync::Arc<std::sync::Mutex<command::
     }
 }
 
-/// Handle socket when the given global _runner_ (passed as `Arc<Mutex>`) is
-/// available.
 fn handle_socket(
     _socket: tungstenite::WebSocket<std::net::TcpStream>,
     arc_runner: std::sync::Arc<std::sync::Mutex<command::CommandRunner>>,
