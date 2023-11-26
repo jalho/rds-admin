@@ -21,6 +21,9 @@ impl CommandRunner {
         Self { log_file }
     }
 
+    // TODO: Add support for running a sequence of commands
+    //       (CmdSeq = Vec<Cmd> or something...)
+    //       -- make exec() accept some trait that Cmd and CmdSeq share?
     pub fn exec(&self, command: &Cmd) {
         let mut writer = std::io::BufWriter::new(&self.log_file);
         let utc_time_spawn: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
